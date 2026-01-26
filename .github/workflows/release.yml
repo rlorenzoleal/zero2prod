@@ -1,0 +1,86 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version (leave empty for auto, or specify like 1.0.0)'
+        required: false
+        default: ''
+        type: string
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # Needed to push commits and tags
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: cachix/install-nix-action@v31
+
+      - uses: cachix/cachix-action@v16
+        with:
+          name: devenv
+
+      - name: Install devenv
+        run: nix profile install nixpkgs#devenv
+
+      # Run all checks before releasing
+      - name: Format check
+        run: devenv shell -- cargo fmt --check
+
+      - name: Clippy
+        run: devenv shell -- cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: Test
+        run: devenv shell -- cargo test --all-features
+
+      - name: Security audit
+        run: devenv shell -- cargo audit
+
+      # Configure git for the release commit
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      # Determine version and create release
+      - name: Create release
+        id: release
+        run: |
+          if [ -z "${{ github.event.inputs.version }}" ]; then
+            echo "📦 Auto-detecting version from commits..."
+            devenv shell -- cog bump --auto
+          else
+            echo "📦 Creating release ${{ github.event.inputs.version }}..."
+            devenv shell -- cog bump --version ${{ github.event.inputs.version }}
+          fi
+          
+          # Get the new version tag
+          VERSION=$(git describe --tags --abbrev=0)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "✅ Released $VERSION"
+
+      # Create GitHub Release with changelog
+      - name: Generate changelog for release
+        id: changelog
+        run: |
+          # Get changelog for this version
+          devenv shell -- cog changelog --at ${{ steps.release.outputs.version }} > RELEASE_NOTES.md
+          cat RELEASE_NOTES.md
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.release.outputs.version }}
+          name: ${{ steps.release.outputs.version }}
+          body_path: RELEASE_NOTES.md
+          draft: false
+          prerelease: ${{ startsWith(steps.release.outputs.version, 'v0.') }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
