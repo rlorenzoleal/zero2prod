@@ -1,0 +1,59 @@
+# Cocogitto Configuration
+# https://docs.cocogitto.io/config/
+
+# Generate changelog from conventional commits
+from_latest_tag = false
+ignore_merge_commits = true
+disable_changelog = false
+disable_bump_commit = false
+
+# Only allow releases from main
+branch_whitelist = ["main", "master"]
+
+# Tag format: v1.0.0
+tag_prefix = "v"
+
+# Pre-bump hooks run checks before creating version
+# Note: CI also runs these, but good to have locally too
+pre_bump_hooks = [
+    "cargo fmt --check",
+    "cargo clippy -- -D warnings",
+    "cargo test",
+]
+
+# Post-bump hooks - CI handles git push, so we keep this minimal
+# Uncomment if you want local releases to auto-push
+# post_bump_hooks = [
+#     "git push",
+#     "git push origin {{version}}",
+# ]
+
+# ============================================
+# COMMIT TYPES
+# ============================================
+
+[commit_types]
+feat = { changelog_title = "🚀 Features", omit_from_changelog = false, bump_minor = true }
+fix = { changelog_title = "🐛 Bug Fixes", omit_from_changelog = false, bump_patch = true }
+docs = { changelog_title = "📚 Documentation", omit_from_changelog = false }
+style = { changelog_title = "💄 Styling", omit_from_changelog = false }
+refactor = { changelog_title = "♻️ Refactoring", omit_from_changelog = false }
+perf = { changelog_title = "⚡ Performance", omit_from_changelog = false, bump_patch = true }
+test = { changelog_title = "🧪 Tests", omit_from_changelog = false }
+build = { changelog_title = "📦 Build", omit_from_changelog = false }
+ci = { changelog_title = "👷 CI/CD", omit_from_changelog = false }
+chore = { changelog_title = "🔧 Chores", omit_from_changelog = true }
+revert = { changelog_title = "⏪ Reverts", omit_from_changelog = false }
+
+# ============================================
+# CHANGELOG
+# ============================================
+
+[changelog]
+path = "CHANGELOG.md"
+# Use full_hash template to include commit hashes
+template = "full_hash"
+# Configure for GitHub (update with your repo details)
+# remote = "github.com"
+# repository = "your-username/zero2prod"
+# owner = "your-username"
