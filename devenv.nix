@@ -33,15 +33,6 @@
   # ============================================
   languages.rust = {
     enable = true;
-    channel = "stable";
-    components = [
-      "rustc"
-      "cargo"
-      "clippy"
-      "rustfmt"
-      "rust-analyzer"
-      "rust-src"
-    ];
   };
 
   # ============================================
@@ -64,16 +55,14 @@
   # GIT HOOKS
   # ============================================
   git-hooks.hooks = {
-    # Rust checks (pre-commit stage)
     rustfmt.enable = true;
+
     clippy = {
       enable = true;
       settings.denyWarnings = true;
     };
-    cargo-check.enable = true;
 
-    # Conventional commit validation (commit-msg stage)
-    # Allows fixup!/squash!/amend! commits locally - CI will catch them
+    # Conventional commit validation
     cocogitto = {
       enable = true;
       name = "Conventional Commit (cocogitto)";
