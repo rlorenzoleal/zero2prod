@@ -39,7 +39,14 @@ jobs:
       # Validate conventional commits (PRs only)
       - name: Check commits
         if: github.event_name == 'pull_request'
-        run: devenv shell -- cog check --from-latest-tag
+        run: |
+          # Check if any tags exist
+          if git describe --tags --abbrev=0 2>/dev/null; then
+            devenv shell -- cog check --from-latest-tag
+          else
+            # No tags yet, check all commits
+            devenv shell -- cog check
+          fi
 
       # Code quality checks
       - name: Format
