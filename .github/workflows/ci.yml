@@ -12,6 +12,20 @@ jobs:
     runs-on: ubuntu-latest
     env:
       USER: runner  # Required for cachix
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: newsletter
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - uses: actions/checkout@v4
         with:
@@ -51,6 +65,9 @@ jobs:
       # Code quality checks
       - name: Format
         run: devenv shell -- cargo fmt --check
+
+      - name: Run migrations
+        run: devenv shell -- sqlx migrate run
 
       - name: Clippy
         run: devenv shell -- cargo clippy --all-targets --all-features -- -D warnings
