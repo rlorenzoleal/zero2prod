@@ -1,0 +1,5 @@
+[advisories]
+ignore = [
+    # rsa vulnerability in sqlx-mysql - we only use Postgres, and no fix exists
+    "RUSTSEC-2023-0071",
+]
