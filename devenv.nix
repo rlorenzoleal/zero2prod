@@ -7,6 +7,8 @@
 }:
 
 {
+  dotenv.enable = true;
+
   # ============================================
   # PACKAGES
   # ============================================
@@ -23,6 +25,9 @@
     # Conventional commits
     cocogitto # Enforce conventional commits + changelog
 
+    #database
+    sqlx-cli
+
     # Fast linker
     llvmPackages.lld
     clang
@@ -33,6 +38,20 @@
   # ============================================
   languages.rust = {
     enable = true;
+  };
+
+  # ============================================
+  # POSTGRES
+  # ============================================
+  services.postgres = {
+    enable = true;
+    listen_addresses = "127.0.0.1";
+    port = 5432;
+    initialDatabases = [ { name = "newsletter"; } ];
+    initialScript = ''
+      CREATE ROLE postgres WITH LOGIN SUPERUSER PASSWORD 'password';
+    '';
+    settings.max_connections = 1000;
   };
 
   # ============================================
@@ -49,6 +68,8 @@
     CARGO_TARGET_X86_64_APPLE_DARWIN_RUSTFLAGS = "-C link-arg=-fuse-ld=lld";
     CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER = "clang";
     CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS = "-C link-arg=-fuse-ld=lld";
+
+    DATABASE_URL = "postgres://postgres:password@127.0.0.1:5432/newsletter";
   };
 
   # ============================================
@@ -239,6 +260,12 @@
     echo "✅ Released $(git describe --tags --abbrev=0)"
   '';
 
+  scripts."db:migrate".exec = "sqlx migrate run";
+  scripts."db:reset".exec = ''
+    sqlx database drop -y || true
+    sqlx database create
+    sqlx migrate run
+  '';
   # ============================================
   # SHELL HOOKS
   # ============================================
