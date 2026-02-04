@@ -21,6 +21,7 @@
     cargo-tarpaulin # Code coverage (Linux only, but available in nix)
     cargo-audit # Security vulnerability scanning
     cargo-nextest # Better test runner
+    cargo-machete # Unused dependencies
 
     # Conventional commits
     cocogitto # Enforce conventional commits + changelog
