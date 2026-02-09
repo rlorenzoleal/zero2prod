@@ -1,0 +1,26 @@
+# Devenv/Nix
+.env
+.envrc
+.devenv/
+.direnv/
+.devenv.flake.nix
+devenv.lock
+devenv.nix
+devenv.yaml
+.pre-commit-config.yaml
+
+# Git/GitHub
+.git/
+.github/
+
+# Cargo
+.cargo/
+target/
+
+# Project files not needed in image
+tests/
+migrations/
+Dockerfile
+cog.toml
+*.md
+CHANGELOG.md
