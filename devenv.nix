@@ -26,8 +26,11 @@
     # Conventional commits
     cocogitto # Enforce conventional commits + changelog
 
-    #database
+    # Database
     sqlx-cli
+
+    # Digital Ocean's CLI
+    doctl
 
     # Fast linker
     llvmPackages.lld
@@ -71,6 +74,12 @@
     CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS = "-C link-arg=-fuse-ld=lld";
 
     DATABASE_URL = "postgres://postgres:password@127.0.0.1:5432/newsletter";
+
+    DIGITALOCEAN_ACCESS_TOKEN =
+      if builtins.getEnv "CI" != "" then
+        ""
+      else
+        config.secretspec.secrets.DIGITALOCEAN_ACCESS_TOKEN or "";
   };
 
   # ============================================
