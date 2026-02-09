@@ -41,6 +41,13 @@ jobs:
       - name: Install devenv
         run: nix profile install nixpkgs#devenv
 
+      - name: Configure devenv for CI
+        run: |
+          cat > devenv.local.yaml << 'EOF'
+          secretspec:
+            enable: false
+          EOF
+
       # Check for unsquashed fixup commits (PRs only)
       - name: Check for fixup commits
         if: github.event_name == 'pull_request'
