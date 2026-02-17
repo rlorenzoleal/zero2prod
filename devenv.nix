@@ -80,6 +80,13 @@
         ""
       else
         config.secretspec.secrets.DIGITALOCEAN_ACCESS_TOKEN or "";
+
+    # Postmark token
+    APP_EMAIL_CLIENT__AUTHORIZATION_TOKEN =
+      if builtins.getEnv "CI" != "" then
+        ""
+      else
+        config.secretspec.secrets.POSTMARK_API_TOKEN or "";
   };
 
   # ============================================
