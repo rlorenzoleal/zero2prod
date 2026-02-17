@@ -80,7 +80,7 @@ jobs:
         run: devenv shell -- cargo clippy --all-targets --all-features -- -D warnings
 
       - name: Test
-        run: devenv shell -- cargo test --all-features
+        run: devenv shell -- cargo nextest run
 
       - name: Security audit
         run: devenv shell -- cargo audit
