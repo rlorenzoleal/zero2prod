@@ -14,18 +14,23 @@ pub struct Parameters {
 pub async fn confirm(parameters: web::Query<Parameters>, pool: web::Data<PgPool>) -> HttpResponse {
     let id = match get_subscriber_id_from_token(&pool, &parameters.subscription_token).await {
         Ok(id) => id,
-        Err(_) => return HttpResponse::InternalServerError().finish(),
+        Err(err) => {
+            tracing::error!("Getting subscriber id failed: {:?}", err);
+            return HttpResponse::InternalServerError().finish();
+        }
     };
 
     match id {
         Some(subscriber_id) => {
-            if confirm_subscriber(&pool, subscriber_id).await.is_err() {
+            if let Err(err) = confirm_subscriber(&pool, subscriber_id).await {
+                tracing::error!("Confirm subscriber failed: {:?}", err);
                 return HttpResponse::InternalServerError().finish();
             }
             HttpResponse::Ok().finish()
         }
         None => {
             // Invalid Token
+            tracing::error!("Invalid token");
             HttpResponse::Unauthorized().finish()
         }
     }
