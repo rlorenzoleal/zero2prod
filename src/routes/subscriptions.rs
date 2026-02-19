@@ -54,36 +54,41 @@ pub async fn subscribe(
 
     let mut transaction = match pool.begin().await {
         Ok(transaction) => transaction,
-        Err(_) => return HttpResponse::InternalServerError().finish(),
+        Err(err) => {
+            tracing::error!("Begin Transaction failed: {:?}", err);
+            return HttpResponse::InternalServerError().finish();
+        }
     };
 
     let subscriber_id = match insert_subscriber(&mut transaction, &new_subscriber).await {
         Ok(subscriber_id) => subscriber_id,
-        Err(_) => return HttpResponse::InternalServerError().finish(),
+        Err(err) => {
+            tracing::error!("Insert subscriber transaction failed: {:?}", err);
+            return HttpResponse::InternalServerError().finish();
+        }
     };
 
     let subscription_token = generate_subscription_token();
 
-    if store_token(&mut transaction, subscriber_id, &subscription_token)
-        .await
-        .is_err()
-    {
+    if let Err(err) = store_token(&mut transaction, subscriber_id, &subscription_token).await {
+        tracing::error!("Store token transaction failed: {:?}", err);
         return HttpResponse::InternalServerError().finish();
     }
 
-    if transaction.commit().await.is_err() {
+    if let Err(err) = transaction.commit().await {
+        tracing::error!("Transaction commit failed: {:?}", err);
         return HttpResponse::InternalServerError().finish();
     }
 
-    if send_confirmation_email(
+    if let Err(err) = send_confirmation_email(
         &email_client,
         new_subscriber,
         &base_url.0,
         &subscription_token,
     )
     .await
-    .is_err()
     {
+        tracing::error!("Send confirmation email failed: {:?}", err);
         return HttpResponse::InternalServerError().finish();
     }
 
@@ -170,4 +175,8 @@ pub async fn send_confirmation_email(
     email_client
         .send_email(new_subscriber.email, "Welcome!", &html_body, &plain_body)
         .await
+        .map_err(|err| {
+            tracing::error!("Failed to send confirmation email {:?}", err);
+            err
+        })
 }
