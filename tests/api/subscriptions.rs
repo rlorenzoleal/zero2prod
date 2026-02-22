@@ -126,4 +126,73 @@ async fn subscribe_sends_a_confirmation_email_with_a_link() {
     let confirmation_links = app.get_confirmation_links(email_request);
 
     assert_eq!(confirmation_links.html, confirmation_links.plain_text);
+
+    app.shutdown().await;
+}
+
+#[tokio::test]
+async fn subscribe_sends_second_email_on_resubscription_by_unconfirmed_user() {
+    let app = spawn_app().await;
+    let body = "name=le%20guin&email=ursula_le_guin%40gmail.com";
+
+    Mock::given(path("/email"))
+        .and(method("POST"))
+        .respond_with(ResponseTemplate::new(200))
+        .expect(2)
+        .mount(&app.email_server)
+        .await;
+
+    // Subscribe twice, before confirming, we should receive two emails
+    app.post_subscriptions(body.into()).await;
+    app.post_subscriptions(body.into()).await;
+
+    let first_email_request = &app.email_server.received_requests().await.unwrap()[0];
+    let first_confirmation_links = app.get_confirmation_links(first_email_request);
+    let second_email_request = &app.email_server.received_requests().await.unwrap()[1];
+    let second_confirmation_links = app.get_confirmation_links(second_email_request);
+
+    assert_eq!(
+        first_confirmation_links.html,
+        first_confirmation_links.plain_text
+    );
+    assert_eq!(
+        second_confirmation_links.html,
+        second_confirmation_links.plain_text
+    );
+    assert_ne!(
+        first_confirmation_links.plain_text,
+        second_confirmation_links.plain_text
+    );
+
+    app.shutdown().await;
+}
+
+#[tokio::test]
+async fn subscribe_returns_200_and_does_not_send_second_email_if_user_is_confirmed() {
+    let app = spawn_app().await;
+    let body = "name=le%20guin&email=ursula_le_guin%40gmail.com";
+
+    Mock::given(path("/email"))
+        .and(method("POST"))
+        .respond_with(ResponseTemplate::new(200))
+        .expect(1)
+        .mount(&app.email_server)
+        .await;
+
+    app.post_subscriptions(body.into()).await;
+
+    let email_request = &app.email_server.received_requests().await.unwrap()[0];
+    let confirmation_links = app.get_confirmation_links(email_request);
+
+    // Confirm user before resubscribing
+    reqwest::get(confirmation_links.html)
+        .await
+        .unwrap()
+        .error_for_status()
+        .unwrap();
+
+    let response = app.post_subscriptions(body.into()).await;
+    assert_eq!(200, response.status().as_u16());
+
+    app.shutdown().await;
 }

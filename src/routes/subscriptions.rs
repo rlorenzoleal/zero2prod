@@ -1,4 +1,4 @@
-use crate::domain::{NewSubscriber, SubscriberEmail, SubscriberName};
+use crate::domain::{NewSubscriber, SubscriberEmail, SubscriberName, SubscriptionStatus};
 use crate::email_client::EmailClient;
 use crate::startup::ApplicationBaseUrl;
 
@@ -47,7 +47,7 @@ pub async fn subscribe(
     email_client: web::Data<EmailClient>,
     base_url: web::Data<ApplicationBaseUrl>,
 ) -> HttpResponse {
-    let new_subscriber = match form.0.try_into() {
+    let new_subscriber: NewSubscriber = match form.0.try_into() {
         Ok(subscriber) => subscriber,
         Err(_) => return HttpResponse::BadRequest().finish(),
     };
@@ -60,13 +60,25 @@ pub async fn subscribe(
         }
     };
 
-    let subscriber_id = match insert_subscriber(&mut transaction, &new_subscriber).await {
-        Ok(subscriber_id) => subscriber_id,
-        Err(err) => {
-            tracing::error!("Insert subscriber transaction failed: {:?}", err);
-            return HttpResponse::InternalServerError().finish();
-        }
-    };
+    let subscriber_id =
+        match get_subscriber_id_and_status_by_email(&pool, &new_subscriber.email).await {
+            Ok(Some((_, SubscriptionStatus::Confirmed))) => {
+                tracing::info!("User is already subscribed");
+                return HttpResponse::Ok().finish();
+            }
+            Ok(Some((uuid, SubscriptionStatus::PendingConfirmation))) => uuid,
+            Ok(None) => match insert_subscriber(&mut transaction, &new_subscriber).await {
+                Ok(subscriber_id) => subscriber_id,
+                Err(err) => {
+                    tracing::error!("Insert subscriber transaction failed: {:?}", err);
+                    return HttpResponse::InternalServerError().finish();
+                }
+            },
+            Err(err) => {
+                tracing::error!("Getting subscriber id and status failed: {:?}", err);
+                return HttpResponse::InternalServerError().finish();
+            }
+        };
 
     let subscription_token = generate_subscription_token();
 
@@ -93,6 +105,32 @@ pub async fn subscribe(
     }
 
     HttpResponse::Ok().finish()
+}
+
+#[tracing::instrument(
+    name = "Fetching subscriber details from database",
+    skip(subscriber_email, pool)
+)]
+pub async fn get_subscriber_id_and_status_by_email(
+    pool: &PgPool,
+    subscriber_email: &SubscriberEmail,
+) -> Result<Option<(Uuid, SubscriptionStatus)>, sqlx::Error> {
+    let result = sqlx::query!(
+        r#"
+        SELECT id, status as "status: SubscriptionStatus"
+        FROM subscriptions
+        WHERE email = $1
+        "#,
+        subscriber_email.as_ref()
+    )
+    .fetch_optional(pool)
+    .await
+    .map_err(|e| {
+        tracing::error!("Failed to execute query: {:?}", e);
+        e
+    })?;
+
+    Ok(result.map(|r| (r.id, r.status)))
 }
 
 #[tracing::instrument(
