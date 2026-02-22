@@ -1,11 +1,11 @@
-use crate::domain::{NewSubscriber, SubscriberEmail, SubscriberName, SubscriptionStatus};
+use crate::domain::{
+    NewSubscriber, SubscriberEmail, SubscriberName, SubscriptionStatus, SubscriptionToken,
+};
 use crate::email_client::EmailClient;
 use crate::startup::ApplicationBaseUrl;
 
 use actix_web::{HttpResponse, web};
 use chrono::Utc;
-use rand::distributions::Alphanumeric;
-use rand::{Rng, thread_rng};
 use sqlx::{Executor, PgPool, Postgres, Transaction};
 use uuid::Uuid;
 
@@ -23,14 +23,6 @@ impl TryFrom<FormData> for NewSubscriber {
         let email = SubscriberEmail::parse(form.email)?;
         Ok(NewSubscriber { email, name })
     }
-}
-
-fn generate_subscription_token() -> String {
-    let mut rng = thread_rng();
-    std::iter::repeat_with(|| rng.sample(Alphanumeric))
-        .map(char::from)
-        .take(25)
-        .collect()
 }
 
 #[tracing::instrument(
@@ -80,7 +72,7 @@ pub async fn subscribe(
             }
         };
 
-    let subscription_token = generate_subscription_token();
+    let subscription_token = SubscriptionToken::generate_random();
 
     if let Err(err) = store_token(&mut transaction, subscriber_id, &subscription_token).await {
         tracing::error!("Store token transaction failed: {:?}", err);
@@ -168,14 +160,14 @@ pub async fn insert_subscriber(
 pub async fn store_token(
     transaction: &mut Transaction<'_, Postgres>,
     subscriber_id: Uuid,
-    subscription_token: &str,
+    subscription_token: &SubscriptionToken,
 ) -> Result<(), sqlx::Error> {
     let query = sqlx::query!(
         r#"
         INSERT INTO subscription_tokens (subscription_token, subscriber_id)
         VALUES($1, $2)
         "#,
-        subscription_token,
+        subscription_token.as_ref(),
         subscriber_id
     );
 
@@ -195,11 +187,12 @@ pub async fn send_confirmation_email(
     email_client: &EmailClient,
     new_subscriber: NewSubscriber,
     base_url: &str,
-    subscription_token: &str,
+    subscription_token: &SubscriptionToken,
 ) -> Result<(), reqwest::Error> {
     let confirmation_link = format!(
         "{}/subscriptions/confirm?subscription_token={}",
-        base_url, subscription_token
+        base_url,
+        subscription_token.as_ref()
     );
     let plain_body = format!(
         "Welcome to our newsletter!\nVisit {} to confirm your subscription.",
