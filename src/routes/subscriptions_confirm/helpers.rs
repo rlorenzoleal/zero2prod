@@ -1,0 +1,50 @@
+use crate::domain::SubscriptionToken;
+
+use sqlx::PgPool;
+use uuid::Uuid;
+
+#[tracing::instrument(
+    name = "Get subscriber_id from token"
+    skip(subscription_token, pool)
+)]
+pub async fn get_subscriber_id_from_token(
+    pool: &PgPool,
+    subscription_token: &SubscriptionToken,
+) -> Result<Option<Uuid>, sqlx::Error> {
+    let result = sqlx::query!(
+        r#"
+        SELECT subscriber_id FROM subscription_tokens
+        WHERE subscription_token = $1
+        "#,
+        subscription_token.as_ref()
+    )
+    .fetch_optional(pool)
+    .await
+    .map_err(|e| {
+        tracing::error!("Failed to get subscriber id from token {:?}", e);
+        e
+    })?;
+
+    Ok(result.map(|r| r.subscriber_id))
+}
+
+#[tracing::instrument(
+    name = "Mark subscriber as confirmed"
+    skip(subscriber_id, pool)
+)]
+pub async fn confirm_subscriber(pool: &PgPool, subscriber_id: Uuid) -> Result<(), sqlx::Error> {
+    sqlx::query!(
+        r#"
+        UPDATE subscriptions SET status = 'confirmed' WHERE id = $1
+        "#,
+        subscriber_id
+    )
+    .execute(pool)
+    .await
+    .map_err(|e| {
+        tracing::error!("Failed to confirm subscriber: {:?}", e);
+        e
+    })?;
+
+    Ok(())
+}
