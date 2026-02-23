@@ -6,6 +6,7 @@ use sqlx::postgres::PgSslMode;
 use std::time::Duration;
 
 use crate::domain::SubscriberEmail;
+use crate::domain::SubscriberEmailError;
 
 #[derive(serde::Deserialize, Clone)]
 pub struct Settings {
@@ -42,7 +43,7 @@ pub struct EmailClientSettings {
 }
 
 impl EmailClientSettings {
-    pub fn sender(&self) -> Result<SubscriberEmail, String> {
+    pub fn sender(&self) -> Result<SubscriberEmail, SubscriberEmailError> {
         SubscriberEmail::parse(self.sender_email.clone())
     }
 

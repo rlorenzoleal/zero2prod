@@ -5,19 +5,34 @@ const NAME_LENGTH_LIMIT: usize = 256;
 #[derive(Debug)]
 pub struct SubscriberName(String);
 
+#[derive(thiserror::Error, Debug, PartialEq)]
+pub enum SubscriberNameError {
+    #[error("Subscriber name can't be empty")]
+    EmptyOrWhiteSpace,
+    #[error("Subscriber name length ({0}) exceeds the {limit} graphemes limit", limit = NAME_LENGTH_LIMIT)]
+    TooLong(usize),
+    #[error("Subscriber name contains an invalid character: {0}")]
+    InvalidCharacter(char),
+}
+
 impl SubscriberName {
-    pub fn parse(s: String) -> Result<Self, String> {
-        let is_empty_or_whitespace = s.trim().is_empty();
-        let is_too_long = s.graphemes(true).count() > NAME_LENGTH_LIMIT;
+    pub fn parse(s: String) -> Result<Self, SubscriberNameError> {
+        if s.trim().is_empty() {
+            return Err(SubscriberNameError::EmptyOrWhiteSpace);
+        }
+
+        let graphemes_count = s.graphemes(true).count();
+        if graphemes_count > NAME_LENGTH_LIMIT {
+            return Err(SubscriberNameError::TooLong(graphemes_count));
+        }
+
         let forbidden_characters = ['/', '(', ')', '"', '<', '>', '\\', '{', '}'];
 
-        let contains_forbidden_characters = s.chars().any(|g| forbidden_characters.contains(&g));
-
-        if is_empty_or_whitespace || is_too_long || contains_forbidden_characters {
-            Err(format!("{} is not a valid subscriber name.", s))
-        } else {
-            Ok(Self(s))
+        if let Some(forbidden_char) = s.chars().find(|c| forbidden_characters.contains(c)) {
+            return Err(SubscriberNameError::InvalidCharacter(forbidden_char));
         }
+
+        Ok(Self(s))
     }
 }
 
@@ -29,8 +44,10 @@ impl AsRef<str> for SubscriberName {
 
 #[cfg(test)]
 mod test {
+    use crate::domain::subscriber_name::SubscriberNameError;
+
     use super::{NAME_LENGTH_LIMIT, SubscriberName};
-    use claims::{assert_err, assert_ok};
+    use claims::{assert_err_eq, assert_ok};
 
     #[test]
     fn a_name_as_long_as_the_limit_is_valid() {
@@ -41,26 +58,38 @@ mod test {
     #[test]
     fn a_name_longer_than_the_limit_is_rejected() {
         let name = "a".repeat(NAME_LENGTH_LIMIT + 1);
-        assert_err!(SubscriberName::parse(name));
+        assert_err_eq!(
+            SubscriberName::parse(name),
+            SubscriberNameError::TooLong(NAME_LENGTH_LIMIT + 1)
+        );
     }
 
     #[test]
     fn whitespace_only_names_are_rejected() {
         let name = " ".to_string();
-        assert_err!(SubscriberName::parse(name));
+        assert_err_eq!(
+            SubscriberName::parse(name),
+            SubscriberNameError::EmptyOrWhiteSpace
+        );
     }
 
     #[test]
     fn empty_string_is_rejected() {
         let name = "".to_string();
-        assert_err!(SubscriberName::parse(name));
+        assert_err_eq!(
+            SubscriberName::parse(name),
+            SubscriberNameError::EmptyOrWhiteSpace
+        );
     }
 
     #[test]
     fn names_containing_an_invalid_character_are_rejected() {
-        for name in &['/', '(', ')', '"', '<', '>', '\\', '{', '}'] {
-            let name = name.to_string();
-            assert_err!(SubscriberName::parse(name));
+        for char in &['/', '(', ')', '"', '<', '>', '\\', '{', '}'] {
+            let name = char.to_string();
+            assert_err_eq!(
+                SubscriberName::parse(name),
+                SubscriberNameError::InvalidCharacter(*char)
+            );
         }
     }
 
