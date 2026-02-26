@@ -29,6 +29,8 @@ unicode-segmentation = "1"
 validator = { version = "0.19", features = ["derive"] }
 rand = { version = "0.8", features = ["std_rng"] }
 thiserror = "1"
+base64 = "0.22.1"
+argon2 = { version = "0.5", features = ["std"] }
 
 [dependencies.sqlx]
 version = "0.8"
