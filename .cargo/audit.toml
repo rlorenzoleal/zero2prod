@@ -1,5 +1,6 @@
 [advisories]
 ignore = [
-    # rsa vulnerability in sqlx-mysql - we only use Postgres, and no fix exists
-    "RUSTSEC-2023-0071",
+    "RUSTSEC-2023-0071", # rsa vulnerability in sqlx-mysql. We only use Postgres, and no fix exists
+    "RUSTSEC-2024-0384", # instant unmaintained (via wiremock, test dep)
+    "RUSTSEC-2026-0097", # rand unsound with custom logger
 ]

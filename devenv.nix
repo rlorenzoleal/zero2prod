@@ -7,8 +7,6 @@
 }:
 
 {
-  dotenv.enable = true;
-
   # ============================================
   # PACKAGES
   # ============================================
@@ -35,6 +33,13 @@
     # Fast linker
     llvmPackages.lld
     clang
+
+    # Formatters & linters (used by IDE plugins)
+    nixfmt
+    taplo
+
+    # Secrets management
+    secretspec
   ];
 
   # ============================================
@@ -83,10 +88,7 @@
 
     # Postmark token
     APP_EMAIL_CLIENT__AUTHORIZATION_TOKEN =
-      if builtins.getEnv "CI" != "" then
-        ""
-      else
-        config.secretspec.secrets.POSTMARK_API_TOKEN or "";
+      if builtins.getEnv "CI" != "" then "" else config.secretspec.secrets.POSTMARK_API_TOKEN or "";
   };
 
   # ============================================
